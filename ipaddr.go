@@ -284,20 +284,46 @@ func LocalAddrMatching(addr string) (local string, err error) {
 
 // Helper function to check if an IP is private
 func IsPrivateIP(ip net.IP) bool {
-	privateIPBlocks := []net.IPNet{
-		// 10.0.0.0/8
-		{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
-		// 172.16.0.0/12
-		{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
-		// 192.168.0.0/16
-		{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
+	// Check for IPv4 private addresses
+	if ip.To4() != nil {
+		privateIPv4Blocks := []*net.IPNet{
+			// 10.0.0.0/8
+			{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+			// 172.16.0.0/12
+			{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
+			// 192.168.0.0/16
+			{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
+			// 127.0.0.0/8 (loopback)
+			{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+			// 169.254.0.0/16 (link-local)
+			{IP: net.IPv4(169, 254, 0, 0), Mask: net.CIDRMask(16, 32)},
+		}
+		for _, block := range privateIPv4Blocks {
+			if block.Contains(ip) {
+				return true
+			}
+		}
+		return false
 	}
 
-	for _, block := range privateIPBlocks {
+	// Check for IPv6 private addresses
+	privateIPv6Blocks := []*net.IPNet{
+		// fe80::/10 (link-local)
+		{IP: net.ParseIP("fe80::"), Mask: net.CIDRMask(10, 128)},
+		// fc00::/7 (unique local addresses)
+		{IP: net.ParseIP("fc00::"), Mask: net.CIDRMask(7, 128)},
+		// ::1/128 (loopback)
+		{IP: net.ParseIP("::1"), Mask: net.CIDRMask(128, 128)},
+		// ::/128 (unspecified)
+		{IP: net.ParseIP("::"), Mask: net.CIDRMask(128, 128)},
+	}
+
+	for _, block := range privateIPv6Blocks {
 		if block.Contains(ip) {
 			return true
 		}
 	}
+
 	return false
 }
 
