@@ -212,6 +212,11 @@ func LocalAddrMatching(addr string) (local string, err error) {
 
 	remote6 := serverAddr.IP.To4() == nil
 
+	_, tailscale100net, err := net.ParseCIDR("100.1.1.1/8")
+	panicOn(err)
+	//fmt.Printf("tailscale100net = '%s'\n", tailscale100net)
+	isServerTailscale := tailscale100net.Contains(serverAddr.IP)
+
 	// Get a list of network interfaces on the machine
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -247,25 +252,49 @@ func LocalAddrMatching(addr string) (local string, err error) {
 			}
 
 			// Skip if no IPNet
-			if ip == nil || ipNet == nil {
-				//if ip == nil || ipNet == nil {
+			if ip == nil {
 				continue
 			}
+			if ipNet == nil {
+				//fmt.Printf("skipping %s b/c no ipNet ?\n", ip)
+				continue
+			}
+			//fmt.Printf("ip '%s' has  ipNet='%v'\n", ip, ipNet)
 
 			local6 := ip.To4() == nil
 			if local6 != remote6 {
 				continue
 			}
 
+			// In Tailscale,
+			// client 100.x.y.z should be allowed to match server 100.q.r.s
+			// but the ipNet here is /32 instead of /8, so we hard code this.
+			isClientTailscale := tailscale100net.Contains(ip)
+			if isServerTailscale {
+				if isClientTailscale {
+					return ip.String(), nil
+				} else {
+					// wait for a tailscale client.
+					continue
+				}
+			}
+			// INVAR: not a Tailscale server.
+			if isClientTailscale {
+				// don't match with non-Tailscale server
+				continue
+			}
+
 			// If the server IP is private, check for same subnet
 			if IsPrivateIP(serverAddr.IP) && IsPrivateIP(ip) {
+				//fmt.Printf("private server '%s', consider private client : %s; ipNet='%s'\n", serverAddr.IP, ip.String(), ipNet)
 				if ipNet.Contains(serverAddr.IP) {
 					return ip.String(), nil
 				}
-			} else if !IsPrivateIP(serverAddr.IP) && !IsPrivateIP(ip) {
-				// If the server has a public IP, pick a public client IP
+			} else if !IsPrivateIP(serverAddr.IP) {
+				// If the server has a public IP, we (client) are probably NAT-ed anyway.
+				// so don't ask for a public client IP address, or we'll not find an IP.
+				//fmt.Printf("for server '%s', selected local interface: %s, IP: %s\n", serverAddr.IP, iface.Name, ip.String())
 				return ip.String(), nil
-				//fmt.Printf("Selected local interface: %s, IP: %s (Public IP)\n", iface.Name, ip.String())
 			}
 		}
 
@@ -280,6 +309,12 @@ func LocalAddrMatching(addr string) (local string, err error) {
 	}
 
 	return selectedIP.String(), nil
+}
+
+// IsCGNAT checks if the given IP falls within the CGNAT range 100.64.0.0 - 100.127.255.255
+func IsCGNAT(ip net.IP) bool {
+	_, cgnatRange, _ := net.ParseCIDR("100.64.0.0/10")
+	return cgnatRange.Contains(ip)
 }
 
 // Helper function to check if an IP is private
@@ -303,7 +338,9 @@ func IsPrivateIP(ip net.IP) bool {
 				return true
 			}
 		}
-		return false
+		isNat := IsCGNAT(ip)
+		//fmt.Printf("isNat = '%v' for '%v'\n", isNat, ip.String())
+		return isNat
 	}
 
 	// Check for IPv6 private addresses
