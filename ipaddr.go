@@ -213,7 +213,9 @@ func LocalAddrMatching(addr string) (local string, err error) {
 	remote6 := serverAddr.IP.To4() == nil
 
 	_, tailscale100net, err := net.ParseCIDR("100.1.1.1/8")
-	panicOn(err)
+	if err != nil {
+		panic(err)
+	}
 	//fmt.Printf("tailscale100net = '%s'\n", tailscale100net)
 	isServerTailscale := tailscale100net.Contains(serverAddr.IP)
 
