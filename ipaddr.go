@@ -292,6 +292,10 @@ func LocalAddrMatching(addr string) (local string, err error) {
 				if ipNet.Contains(serverAddr.IP) {
 					return ip.String(), nil
 				}
+                                if remote6 && strings.HasPrefix(ip.String(), serverAddr.IP.String()[:5]) {
+                                        // best guess with matching first 4 bytes.
+                                        return ip.String(), nil
+                                }
 			} else if !IsPrivateIP(serverAddr.IP) {
 				// If the server has a public IP, we (client) are probably NAT-ed anyway.
 				// so don't ask for a public client IP address, or we'll not find an IP.

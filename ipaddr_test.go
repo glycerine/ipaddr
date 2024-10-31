@@ -25,6 +25,19 @@ func Test100(t *testing.T) {
 
 }
 
+func TestIPv6(t *testing.T) {
+	return // will not work except on specific test host, of course.
+
+	// should find local [fd7a:115c:a1e0:ab12:4843:cd96:624e:3b75] when from appropriate test box.
+	server := "[fd7a:115c:a1e0:ab12:4843:cd96:6258:d622]:9999"
+	local, err := LocalAddrMatching(server)
+	panicOn(err)
+	fmt.Printf("server %v  ->  client %v\n", server, local)
+	if !strings.HasPrefix(local, "[fd7a") {
+		panic(fmt.Sprintf("fd7a not found.  we got local '%v' -> '%v'", local, server))
+	}
+}
+
 func panicOn(err error) {
 	if err != nil {
 		panic(err)
