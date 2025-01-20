@@ -29,10 +29,20 @@ func IsRoutableIPv4(ip string) bool {
 }
 
 // GetExternalIP tries to determine the external IP address
-// used on this host.
+// used on this host. net.IP is just []byte
 func GetExternalIP() string {
+
+	str, netIP := GetExternalIP2()
+	_ = netIP
+	return str
+}
+
+// GetExternalIP2 tries to determine the external IP address
+// used on this host. net.IP is just []byte, defined in the net package.
+func GetExternalIP2() (string, net.IP) {
 	if runtime.GOOS == "windows" {
-		return "127.0.0.1"
+		s := "127.0.0.1"
+		return s, net.ParseIP(s)
 	}
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -54,18 +64,18 @@ func GetExternalIP() string {
 	}
 	switch len(valid) {
 	case 0:
-		return "127.0.0.1"
+		return "127.0.0.1", net.ParseIP("127.0.0.1")
 	case 1:
-		return valid[0]
+		return valid[0], net.ParseIP(valid[0])
 	default:
 		// try to get a routable ip if possible.
 		for _, ip := range valid {
 			if IsRoutableIPv4(ip) {
-				return ip
+				return ip, net.ParseIP(ip)
 			}
 		}
 		// give up, just return the first.
-		return valid[0]
+		return valid[0], net.ParseIP(valid[0])
 	}
 }
 
