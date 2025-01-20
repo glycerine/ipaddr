@@ -2,6 +2,7 @@ package ipaddr
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 )
@@ -42,4 +43,25 @@ func panicOn(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func TestParseURLAddress(t *testing.T) {
+
+	addrURL := "tcp://[::]:8443"
+	scheme, ip, port, isUnspecified, isIPv6, err := ParseURLAddress(addrURL)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Scheme: %s\n", scheme)             // tcp
+	fmt.Printf("IP: %s\n", ip)                     // ::
+	fmt.Printf("Port: %s\n", port)                 // 8443
+	fmt.Printf("Unspecified: %v\n", isUnspecified) // true
+	fmt.Printf("IPv6: %v\n", isIPv6)               // true
+
+	// You can now use the net.IP type directly for comparisons
+	if ip.Equal(net.IPv6unspecified) {
+		fmt.Println("This is the IPv6 unspecified address")
+	}
+
 }

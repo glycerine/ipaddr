@@ -3,6 +3,8 @@ package ipaddr
 import (
 	"fmt"
 	"net"
+	"net/url"
+
 	//"os"
 	"regexp"
 	"runtime"
@@ -292,10 +294,10 @@ func LocalAddrMatching(addr string) (local string, err error) {
 				if ipNet.Contains(serverAddr.IP) {
 					return ip.String(), nil
 				}
-                                if remote6 && strings.HasPrefix(ip.String(), serverAddr.IP.String()[:5]) {
-                                        // best guess with matching first 4 bytes.
-                                        return ip.String(), nil
-                                }
+				if remote6 && strings.HasPrefix(ip.String(), serverAddr.IP.String()[:5]) {
+					// best guess with matching first 4 bytes.
+					return ip.String(), nil
+				}
 			} else if !IsPrivateIP(serverAddr.IP) {
 				// If the server has a public IP, we (client) are probably NAT-ed anyway.
 				// so don't ask for a public client IP address, or we'll not find an IP.
@@ -382,4 +384,33 @@ func IsLocalhost(ipStr string) (isLocal bool, hostOnlyNoPort string) {
 	}
 	isLocal = ip.IsLoopback() || ip.Equal(net.IPv4(127, 0, 0, 1)) || ip.Equal(net.IPv6loopback)
 	return
+}
+
+func ParseURLAddress(addr string) (scheme string, ip net.IP, port string, isUnspecified bool, isIPv6 bool, err error) {
+	// Parse the URL
+	u, err := url.Parse(addr)
+	if err != nil {
+		return "", nil, "", false, false, fmt.Errorf("parsing URL: %w", err)
+	}
+
+	// Split host and port
+	host, port, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		return "", nil, "", false, false, fmt.Errorf("splitting host/port: %w", err)
+	}
+
+	// Remove the brackets from IPv6 address
+	host = strings.Trim(host, "[]")
+
+	// Parse the IP using net.ParseIP
+	ip = net.ParseIP(host)
+	if ip == nil {
+		return "", nil, "", false, false, fmt.Errorf("invalid IP address: %s", host)
+	}
+
+	isUnspecified = ip.IsUnspecified()
+	isIPv6 = ip.To4() == nil && ip.To16() != nil
+
+	return u.Scheme, ip, port, isUnspecified, isIPv6, nil
+
 }
